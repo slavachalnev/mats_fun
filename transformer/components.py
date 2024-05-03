@@ -25,7 +25,6 @@ class MLP(torch.nn.Module):
             torch.zeros(size=(d_in,))
         )
 
-    
     def forward(self, x):
         x = einops.einsum(x, self.W_in, "... d_in, d_in d_out -> ... d_out")
         x = x + self.b_in
@@ -85,10 +84,12 @@ class LayerNorm(torch.nn.Module):
         self.bias = torch.nn.Parameter(torch.zeros(d_model))
     
     def forward(self, x):
-        x -= x.mean(-1)
-        x = x / (torch.std(x, dim=-1) + 1e-5)
+        x: torch.Tensor
+        x -= x.mean(-1, keepdim=True)
+        x = x / (torch.std(x, dim=-1, keepdim=True) + 1e-5)
         x = x * self.scale
         x += self.bias
+        return x
 
 
 class TransformerBlock(torch.nn.Module):
@@ -101,10 +102,8 @@ class TransformerBlock(torch.nn.Module):
         self.ln2 = LayerNorm(d_model=d_model)
 
     def forward(self, x):
-        x = self.ln1(x)
-        x = self.attn(x)
-        x = self.ln2(x)
-        x = self.mlp(x)
+        x += self.attn(self.ln1(x))
+        x += self.mlp(self.ln2(x))
         return x
 
 
