@@ -33,7 +33,6 @@ class MLP(torch.nn.Module):
         x = einops.einsum(x, self.W_out, "... d_mlp, d_mlp d_out -> ... d_out")
         x = x + self.b_out
         return x
-    
 
 
 class Attention(torch.nn.Module):
@@ -77,5 +76,36 @@ class Attention(torch.nn.Module):
         out = einops.einsum(scores, v, "... h pos_q pos_k, ... pos_k d_vs -> ... pos_q d_vs")
         out = einops.einsum(out, self.W_o, "... pos da, da dm -> ... pos dm")
         return out
+    
+
+class LayerNorm(torch.nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+        self.scale = torch.nn.Parameter(torch.ones(d_model))
+        self.bias = torch.nn.Parameter(torch.zeros(d_model))
+    
+    def forward(self, x):
+        x -= x.mean(-1)
+        x = x / (torch.std(x, dim=-1) + 1e-5)
+        x = x * self.scale
+        x += self.bias
+
+
+class TransformerBlock(torch.nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+        self.d_model = d_model
+        self.attn = Attention(d_model=d_model, n_heads=8)
+        self.mlp = MLP(d_in=d_model, d_mlp=d_model*4)
+        self.ln1 = LayerNorm(d_model=d_model)
+        self.ln2 = LayerNorm(d_model=d_model)
+
+    def forward(self, x):
+        x = self.ln1(x)
+        x = self.attn(x)
+        x = self.ln2(x)
+        x = self.mlp(x)
+        return x
+
 
 
